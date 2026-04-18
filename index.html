@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PS4 | NiNJA Hub</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            padding: 40px;
+            max-width: 800px;
+        }
+
+        .container2 {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 40px;
+            padding: 40px;
+            max-width: 800px;
+        }
+
+        .nav-button {
+            width: 250px;
+            height: 250px;
+            flex: 0 0 calc(50% - 40px);
+            margin: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 30px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-decoration: none;
+            color: #e0e0e0;
+            font-size: 24px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            cursor: pointer;
+        }
+
+        .nav-button:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(100, 200, 255, 0.5);
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(100, 200, 255, 0.2);
+        }
+
+        .nav-button i {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+
+        @media (max-width: 768px) {
+            .container2 {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+
+            .nav-button {
+                flex: 0 0 100%;
+                width: 200px;
+                height: 200px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/act" class="nav-button">
+            <i class="fas fa-check-circle"></i>
+            <div>Devkit Activation</div>
+        </a>
+        <a href="/ftp" class="nav-button">
+            <i class="fas fa-database"></i>
+            <div>Devkit FTP</div>
+        </a>
+        <a href="/tact" class="nav-button">
+            <i class="fas fa-check-circle"></i>
+            <div>Testkit Activation</div>
+        </a>
+        <a href="/tftp" class="nav-button">
+            <i class="fas fa-database"></i>
+            <div>Testkit FTP</div>
+        </a>
+        <a href="/PSFree" class="nav-button">
+            <i class="fas fa-database"></i>
+            <div>Lapse Jailbreak</div>
+        </a>
+    </div>
+</body>
+</html>

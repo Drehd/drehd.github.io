@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Bonkers - Testkit Activation</title>
+    <script src="./bundle.js"></script>
+    <style>
+      body {
+        background-color: #252526;
+        color: #cccccc;
+        font-family: "Segoe UI", Tahoma, sans-serif;
+        text-align: center;
+      }
+      h2 {
+        margin-bottom: 20px;
+      }
+      #console {
+        font-family: monospace;
+        background-color: #1e1e1e;
+        color: #cccccc;
+        border: 1px solid #3c3c3c;
+        padding: 12px;
+        border-radius: 6px;
+        margin-top: 20px;
+        text-align: left;
+      }
+      #activateBtn {
+        margin-top: 20px;
+        padding: 12px 24px;
+        font-size: 18px;
+        font-weight: bold;
+        background: #007acc;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+      }
+      #activateBtn:disabled {
+        background: #555555;
+        color: #aaaaaa;
+        cursor: not-allowed;
+      }
+      #activateBtn:not(:disabled):hover {
+        background: #005a9e;
+      }
+      footer {
+        margin-top: 30px;
+        font-size: 14px;
+        color: #888;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>Bonkers: Testkit Activation (PS4 3.55 - 5.55)</h2>
+    <div>
+      <button id="activateBtn">Start Activation</button>
+    </div>
+    <div style="margin-top: 15px;">
+      <label style="font-size: 16px;">
+        <input type="checkbox" id="autoRunCheck" checked>
+        Autorun in <span id="countdown">5</span> seconds
+      </label>
+    </div>
+    <pre id="console"></pre>
+    <footer>
+      UI Designed by <strong>Feyzee</strong>
+    </footer>
+
+    <script>
+      // Logging utility -- defined first so everything below can use it
+      var outputConsole = document.getElementById("console");
+      window.log = function(msg, color) {
+        if (!color) color = "#cccccc";
+        outputConsole.innerHTML += '<span style="color:' + color + '">' + msg + '</span><br>';
+      };
+
+      // Detect firmware from user agent
+      var fwFromUA = navigator.userAgent.substring(navigator.userAgent.indexOf("5.0 (") + 19, navigator.userAgent.indexOf(") Apple"));
+      var fw_major_string = fwFromUA.substring(fwFromUA.indexOf(""), fwFromUA.indexOf("."));
+      var fw_minor_string = fwFromUA.substring(fwFromUA.indexOf(".") + 3, fwFromUA.indexOf(fw_major_string) + 2);
+      var ps4_fw = parseInt(fw_major_string) * 100 + parseInt(fw_minor_string);
+      window.ps4_fw = ps4_fw;
+
+      if (window.ps4_fw <= 407)
+        window.leakval_slide = 0x28;
+      else
+        window.leakval_slide = 0x10;
+
+      // postExpl hook called by exploit on success
+      window.postExpl = function() {
+        setTimeout(window.stage2, 1);
+      };
+
+      function runWebKitExploit() {
+        window.log("Detected firmware: " + fw_major_string + "." + fw_minor_string);
+        if (ps4_fw <= 407) {
+          window.log("Using exploit: StackUninitializedRead");
+          setTimeout(exploit_StackUnitializedRead, 1);
+        } else if (ps4_fw >= 450 && ps4_fw <= 501 && 1 == 0) {
+          window.log("Using exploit: setAttributeNodeNS");
+          setTimeout(exploit_setAttributeNodeNS, 1);
+        } else if (ps4_fw >= 450 && ps4_fw <= 555) {
+          window.log("Using exploit: haveABadTime");
+          setTimeout(exploit_haveABadTime, 1);
+        } else {
+          window.log("Unsupported firmware! Only 3.55 - 5.55 are supported.", "red");
+          document.getElementById("activateBtn").disabled = false;
+          document.getElementById("autoRunCheck").disabled = false;
+        }
+      }
+
+      // Error handlers
+      window.addEventListener('unhandledrejection', function(event) {
+        var reason = event.reason;
+        alert('Unhandled rejection\n' + reason + '\n' + reason.stack);
+      });
+      window.addEventListener('error', function(event) {
+        var reason = event.error;
+        alert('Unhandled error\n' + reason + '\n' + reason.stack);
+        return true;
+      });
+
+      // Autorun state
+      var autoRunEnabled = true;
+      var countdownValue = 5;
+      var countdownTimer = null;
+
+      var activateBtn = document.getElementById("activateBtn");
+      var autoRunCheck = document.getElementById("autoRunCheck");
+      var countdownSpan = document.getElementById("countdown");
+
+      function startExploit() {
+        activateBtn.disabled = true;
+        autoRunCheck.disabled = true;
+        autoRunCheck.checked = false;
+        countdownSpan.textContent = "-";
+        if (countdownTimer !== null) {
+          clearInterval(countdownTimer);
+          countdownTimer = null;
+        }
+        outputConsole.textContent = "";
+        try {
+          runWebKitExploit();
+        } catch (error) {
+          window.log("An error occured during exploit: " + error, "red");
+        }
+      }
+
+      activateBtn.addEventListener("click", startExploit);
+
+      autoRunCheck.addEventListener("change", function() {
+        autoRunEnabled = autoRunCheck.checked;
+        if (!autoRunEnabled) {
+          clearInterval(countdownTimer);
+          countdownTimer = null;
+          countdownSpan.textContent = "-";
+        } else {
+          restartCountdown();
+        }
+      });
+
+      function restartCountdown() {
+        clearInterval(countdownTimer);
+        countdownValue = 5;
+        countdownSpan.textContent = countdownValue;
+        countdownTimer = setInterval(function() {
+          if (!autoRunEnabled) {
+            clearInterval(countdownTimer);
+            countdownTimer = null;
+            return;
+          }
+          countdownValue--;
+          countdownSpan.textContent = countdownValue;
+          if (countdownValue <= 0) {
+            clearInterval(countdownTimer);
+            countdownTimer = null;
+            startExploit();
+          }
+        }, 1000);
+      }
+
+      // Kick off countdown on load
+      window.addEventListener("load", function() {
+        restartCountdown();
+      });
+    </script>
+  </body>
+</html>
