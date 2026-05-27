@@ -52,7 +52,7 @@
     </style>
   </head>
   <body>
-    <h2>Bonkers: Devkit Activation (PS4 3.55 - 5.55)</h2>
+    <h2>Bonkers: Devkit Activation (PS4 5.05)</h2>
     <div>
       <button id="activateBtn">Start Activation</button>
     </div>
@@ -89,22 +89,16 @@
 
       // postExpl hook called by exploit on success
       window.postExpl = function() {
-        setTimeout(window.stage2, 1);
+        setTimeout(window.stage2_, 1);
       };
 
       function runWebKitExploit() {
         window.log("Detected firmware: " + fw_major_string + "." + fw_minor_string);
-        if (ps4_fw <= 407) {
-          window.log("Using exploit: StackUninitializedRead");
-          setTimeout(exploit_StackUnitializedRead, 1);
-        } else if (ps4_fw >= 450 && ps4_fw <= 501 && 1 == 0) {
-          window.log("Using exploit: setAttributeNodeNS");
-          setTimeout(exploit_setAttributeNodeNS, 1);
-        } else if (ps4_fw >= 450 && ps4_fw <= 555) {
+        if (ps4_fw == 505) {
           window.log("Using exploit: haveABadTime");
           setTimeout(exploit_haveABadTime, 1);
         } else {
-          window.log("Unsupported firmware! Only 3.55 - 5.55 are supported.", "red");
+          window.log("Unsupported firmware! Only 5.05 is supported.", "red");
           document.getElementById("activateBtn").disabled = false;
           document.getElementById("autoRunCheck").disabled = false;
         }
@@ -184,10 +178,6 @@
       window.addEventListener("load", function() {
         restartCountdown();
       });
-      //window.addEventListener("load", async () => {
-          //await sleep(1200);
-          //await runWithRetry(stage2_, 3, 2000);
-      //});
     </script>
   </body>
 </html>
