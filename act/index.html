@@ -89,18 +89,6 @@
         //setTimeout(window.stage2, 1);
       //};
 
-      // ====================== POST EXPLOIT BRIDGE ======================
-      window.postExpl = async function postExpl() {
-          console.log("[postExpl] Primitives ready → Launching Stage 2");
-          
-          // Small delay to let primitives stabilize
-          await new Promise(r => setTimeout(r, 100));
-          
-          if (typeof window.stage2 === "function") {
-              await window.stage2();
-          }
-      };
-
       function runWebKitExploit() {
         window.log("Detected firmware: " + fw_major_string + "." + fw_minor_string);
         if (ps4_fw == 505) {

