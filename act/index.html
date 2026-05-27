@@ -82,14 +82,23 @@
       var ps4_fw = parseInt(fw_major_string) * 100 + parseInt(fw_minor_string);
       window.ps4_fw = ps4_fw;
 
-      if (window.ps4_fw <= 407)
-        window.leakval_slide = 0x28;
-      else
-        window.leakval_slide = 0x10;
+      window.leakval_slide = 0x10;
 
       // postExpl hook called by exploit on success
-      window.postExpl = function() {
-        setTimeout(window.stage2_, 1);
+      //window.postExpl = function() {
+        //setTimeout(window.stage2, 1);
+      //};
+
+      // ====================== POST EXPLOIT BRIDGE ======================
+      window.postExpl = async function postExpl() {
+          console.log("[postExpl] Primitives ready → Launching Stage 2");
+          
+          // Small delay to let primitives stabilize
+          await new Promise(r => setTimeout(r, 100));
+          
+          if (typeof window.stage2 === "function") {
+              await window.stage2();
+          }
       };
 
       function runWebKitExploit() {

