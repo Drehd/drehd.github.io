@@ -5712,3 +5712,7 @@ function kernExploit() {
 	// failed (should never go here)
 	return false;
 }
+
+console.log("✅ exploit_haveABadTime:", typeof window.exploit_haveABadTime);
+console.log("✅ stage2:", typeof window.stage2);
+console.log("✅ postExpl:", typeof window.postExpl);
