@@ -806,6 +806,8 @@ var slowpath_jop = [0x48, 0x8B, 0x7F, 0x48, 0x48, 0x8B, 0x07, 0x48, 0x8B, 0x40, 
 slowpath_jop.reverse();
 
 var gadgets;
+var gadgetcache;
+var gadgetshiftcache;
 
 /* Get user agent for determining system firmware */
 var fwFromUA = navigator.userAgent.substring(navigator.userAgent.indexOf("5.0 (") + 19, navigator.userAgent.indexOf(") Apple"));
