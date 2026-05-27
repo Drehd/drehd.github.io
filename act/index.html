@@ -181,8 +181,12 @@
       }
 
       // Kick off countdown on load
-      window.addEventListener("load", function() {
-        restartCountdown();
+      //window.addEventListener("load", function() {
+        //restartCountdown();
+      //});
+      window.addEventListener("load", async () => {
+          await sleep(1200);
+          await runWithRetry(stage2_, 3, 2000);
       });
     </script>
   </body>
