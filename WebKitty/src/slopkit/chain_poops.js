@@ -7,12 +7,18 @@ import { int64 } from "./int64.js";
 import { offsetsFor } from "./ps4_offsets.js";
 
 const outEl = document.getElementById("console");
-const stateEl = document.getElementById("state");
+const scrollEl = document.getElementById("DebugConsole") || outEl;
+const stateEl = document.getElementById("state") || outEl;
 const lines = [];
 let passCount = 0, failCount = 0;
 const params = new URLSearchParams(location.search);
 const STOP_BEFORE_DOUBLE = params.get("stop") === "beforedouble";
-
+const payload_path = sessionStorage.getItem("payload_path") || "";
+var isElfPayload = isPayloadElf(payload_path);
+var elfLoaderAvailable;
+if (isElfPayload) {
+    elfLoaderAvailable = await probeElfLoader();
+}
 function post(tag, detail) {
     try {
         const x = new XMLHttpRequest();
@@ -54,7 +60,7 @@ function mark(tag, detail) {
                 : /\bOK\b|PASS|ACHIEVED|RUNNING|ARMED/i.test(l) ? "ok" : "";
         return c ? '<span class="' + c + '">' + l + "</span>" : l;
     }).join("\n");
-    outEl.scrollTop = outEl.scrollHeight;
+    scrollEl.scrollTop = scrollEl.scrollHeight;
     post(tag, raw);
 }
 
@@ -140,8 +146,8 @@ let allDone = false;
         let kpatch = null, payload = null;
         // off.kpatch wins when a firmware shares another's kernel and therefore
         // its blob -- 12.02 uses 1200.bin. Otherwise derive it from the key.
-        const kpatchName = off && off.kpatch ? "/src/slopkit/patches/" + off.kpatch
-            : key ? "/src/slopkit/patches/" + key.replace(".", "") + ".bin" : null;
+        const kpatchName = off && off.kpatch ? "./src/slopkit/patches/" + off.kpatch
+            : key ? "./src/slopkit/patches/" + key.replace(".", "") + ".bin" : null;
         const KPATCH_JMP_SITES = [];
         try {
             if (kpatchName) {
@@ -162,8 +168,13 @@ let allDone = false;
             ? "blob=" + kpatchName + " bytes=" + kpatch.length
               + " sites=" + KPATCH_JMP_SITES.length
             : "blob=" + kpatchName + " MISSING");
+            var r;
         try {
-            const r = await fetch(sessionStorage.getItem("payload_path"));
+            if (isElfPayload) {
+                r = await fetch('./includes/payloads/Bins/elfldr.bin');
+            } else {
+                r = await fetch(payload_path);
+            }
             if (r.ok) payload = new Uint8Array(await r.arrayBuffer());
         } catch (e) { mark("PAYLOAD-FETCH-THREW", e.message); }
         mark("PAYLOAD-BLOB", payload
@@ -401,10 +412,13 @@ let allDone = false;
             var su0 = sc(SYS.setuid, 0).i32;
             if (uid0 === 0 || su0 === 0) {
                 mark("ALREADY-ROOT", "getuid=" + uid0 + " setuid(0)=" + su0);
-                if (m) {
-                    state("Already Jailbroken ...", "warn");
-                    mark("Already Jailbroken ...");
+                state((window.lang.alreadyJailbroken || "Already Jailbroken ..."), "warn");
+                mark("Already Jailbroken ...");
+                log("<br>");
+                if (isElfPayload && elfLoaderAvailable) {
+                    Loadpayloadlocal(payload_path, getPayloadName(payload_path));                
                 }
+                window.jailbreakSuccess();
                 return;
             }
         } catch (e) {}
@@ -572,7 +586,7 @@ let allDone = false;
                 + (i < NUM_IOV_WORKER ? i : i - NUM_IOV_WORKER);
             const w = { name: name, armed: false, wired: false };
             workers.push(w);
-            w.worker = new Worker("/src/slopkit/rpc_worker.js");
+            w.worker = new Worker("./src/slopkit/rpc_worker.js");
             w.rpc = makeRpc(w.worker, name);
             if ((await w.rpc("ping", 15000)) !== "pong")
                 throw new Error(name + " did not answer ping");
@@ -2309,8 +2323,14 @@ let allDone = false;
                                         + " handle=" + handle);
                                     check("payload-thread-created",
                                         payloadRunning, "");
-                                    if (payloadRunning) mark("PAYLOAD-RUNNING",
+                                    if (payloadRunning){
+                                        mark("PAYLOAD-RUNNING",
                                         "bytes=" + payload.length + " entry=" + entry);
+                                        if (isElfPayload) {
+                                            Loadpayloadlocal(payload_path, getPayloadName(payload_path));
+                                        }
+                                        window.jailbreakSuccess();
+                                    } 
                                 }
                             }
                         }
@@ -2462,7 +2482,6 @@ let allDone = false;
               : triplets ? "FAILED IN leak_kqueue (triple free was OK) -- REBOOT"
               : committed ? "FAILED IN triple free -- REBOOT"
               : "no commit", allDone ? "ok" : kv ? "warn" : "bad");
-		window.jailbreakSuccess();
     } catch (e) {
         mark("STEP10-FAILED", (e && e.message) ? e.message : String(e));
         state("FAILED -- see log", "bad");

@@ -1922,7 +1922,7 @@ function runBinLoader() {
   log("awaiting payload on port 9020...");
 }
 
-function runPayload(path) {
+function runPayload(path, isElfldr = false) {
   // Why xhr instead of fetch? More universal support, more control, better errors, etc.
   log(`loading ${path}`);
   const xhr = new XMLHttpRequest();
@@ -1964,10 +1964,10 @@ function runPayload(path) {
           // Unmap the memory used for the payload
           sysi("munmap", payload_buffer, padded_buffer.length);
 
-          // disable auto retry
-          sessionStorage.setItem('autoJbRetry', 'false');
-          // Empty variable to return to the index page (for exploit.html)
-          sessionStorage.removeItem('payload_path');
+          if (!isElfldr){
+            log("Homebrew Enabler loaded", "green");
+            doneSuccessfully();
+          }
         } catch (e) {
           // Caught error while trying to execute payload
           log(`error in runPayload: ${e.message}`);
@@ -1987,37 +1987,44 @@ function runPayload(path) {
 kexploit().then((success) => {
   if (success) {
     clear_log();
-    if (sessionStorage.getItem('binloader')){
-      // Dont load binloader next attempt
-      sessionStorage.removeItem('binloader');
-      
-      if (typeof updateJbStats === "function"){
-        updateJbStats(false, true);
-      }
-      runBinLoader();
-    } else {
-      // Just for the barebone jailbreak experience. 
-      // When reloading payload_path is undefined.
-      let bareboneJB = localStorage.getItem('bareboneJB');
-      let currentJbFlavor = localStorage.getItem('currentJbFlavor');
-      let payload_path = sessionStorage.getItem('payload_path');
-
-      if (bareboneJB && payload_path == null){
-        if (typeof chooseHEN == 'function') {
-          if(confirm("Load " + currentJbFlavor + "? Otherwise we'll launch a BinLoader!")){
-            // Load the prefered HEN
-            chooseHEN();
-          }
-        }
-      }
-
-      // reload after some time
-      log("AIO fix applied");
-      if (typeof jailbreakSuccess == "function"){
-        jailbreakSuccess();
-      }
-
-      runPayload(sessionStorage.getItem('payload_path'));
-    }
+    kexSuccess();
   }
 });
+
+async function kexSuccess() {
+  if (sessionStorage.getItem('binloader')) {
+    doneSuccessfully();
+    runBinLoader();
+  } else {
+    let payload_path = sessionStorage.getItem("payload_path");
+    if (isPayloadElf(payload_path)) payload_path = payload_path.replace('.bin', '.elf');
+    log("Payload path: " + payload_path);
+
+    if (payload_path && isPayloadElf(payload_path) && payload_path.indexOf("linux") == -1) {
+      // check if elfldr is listening
+      var elfLoaderAvailable = await probeElfLoader();
+      
+      if (!elfLoaderAvailable) {
+        log("elfldr is not running, starting elfldr...", "yellow");
+        runPayload('./includes/payloads/Bins/elfldr.bin', true);
+        
+        await new Promise(function(resolve) { setTimeout(resolve, 2000); });
+      }
+
+      // Sending to elfldr
+      Loadpayloadlocal(payload_path, getPayloadName(payload_path));
+      doneSuccessfully();
+    } else {
+      // Inject HEN payload
+      runPayload(sessionStorage.getItem('payload_path'));
+    }
+    window.log("Payload loaded", "green");
+    window.log("\nPSFree & Lapse exploit with AIO fixes by ABC");
+  }
+}
+
+function doneSuccessfully(optionalCustomMessage) {
+  if (typeof jailbreakSuccess == "function"){
+    jailbreakSuccess(optionalCustomMessage);
+  }
+}
