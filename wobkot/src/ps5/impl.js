@@ -155,9 +155,9 @@ const impl_map = {
     0: {
       k_sysctl___kern_smp_cpus: 0x277e4c0,
       k_route_output_rtmsg2_ret: 0xa9e7a0,
+      k_ntpadj_lock: 0x1a7f478,
       k_dynlib_status: 0x118,
-      k_stack_leak_td: 0xc0,
-      k_stack_leak_so: 0xd8,
+      k_allproc: 0x34c9d20,
       k_aio_table: 0xc28,
 
       lk_close: 0x36660,
@@ -288,13 +288,45 @@ const impl_map = {
     },
     2: {
       k_route_output_rtmsg2_ret: 0xa9e780,
+
+      wk_expm1_builtin: 0x5b758,
+
+      get wk_POP_R9_RET() {
+        return webkit_base.add(0x4dea92);
+      },
+      get wk_POP_R13_RET() {
+        return webkit_base.add(0x374fff);
+      },
+      get wk_POP_RAX_RET() {
+        return webkit_base.add(0xa63a46);
+      },
+      get wk_POP_RBX_RET() {
+        return webkit_base.add(0x18cb711);
+      },
+      get wk_POP_RCX_RET() {
+        return webkit_base.add(0x2f1873f);
+      },
+      get wk_POP_RDX_RET() {
+        return webkit_base.add(0x3521db7);
+      },
+      get wk_POP_RDI_RET() {
+        return webkit_base.add(0x9a576d);
+      },
+      get wk_POP_RBP_RET() {
+        return webkit_base.add(0x1b5993);
+      },
+      get wk_POP_RSP_RET() {
+        return webkit_base.add(0x36318b0);
+      }
     },
   },
   7: {
     0: {
       k_sysctl___kern_smp_cpus: 0x27706c0,
       k_route_output_rtmsg2_ret: 0xa83731,
+      k_ntpadj_lock: 0x1a6fe18,
       k_dynlib_status: 0x120,
+      k_allproc: 0x34a9d50,
       k_aio_table: 0xc38,
 
       lk_close: 0x37210,
@@ -372,6 +404,7 @@ const impl_map = {
     0x20: {
       k_sysctl___kern_smp_cpus: 0x2770780,
       k_route_output_rtmsg2_ret: 0xa83b81,
+      k_ntpadj_lock: 0x1a6fed8,
 
       lk_close: 0x37250,
       lk__error: 0x1e7f0,
@@ -510,9 +543,9 @@ const impl_map = {
     0: {
       k_sysctl___kern_smp_cpus: 0x27914e0,
       k_route_output_rtmsg2_ret: 0xa9cac5,
+      k_ntpadj_lock: 0x1a8ff48,
       k_dynlib_status: 0x140,
-      k_stack_leak_td: 0xc8,
-      k_stack_leak_so: 0x88,
+      k_allproc: 0x34e5d50,
 
       lk_close: 0x1af90,
       lk__error: 0xeb50,
@@ -658,6 +691,8 @@ const impl_map = {
     0: {
       k_sysctl___kern_smp_cpus: 0x2787ab0,
       k_route_output_rtmsg2_ret: 0xac1451,
+      k_ntpadj_lock: 0x1a588e8,
+      k_allproc: 0x33f5d50,
 
       lk_close: 0x1b7b0,
       lk__error: 0xf160,
@@ -910,6 +945,8 @@ const impl_map = {
     0: {
       k_sysctl___kern_smp_cpus: 0x27a8130,
       k_route_output_rtmsg2_ret: 0xadf87f,
+      k_ntpadj_lock: 0x1a78978,
+      k_allproc: 0x3425d70,
       k_aio_table: 0xc40,
 
       lk_close: 0x1ba10,
@@ -991,6 +1028,8 @@ const impl_map = {
     0: {
       k_sysctl___kern_smp_cpus: 0x2929e50,
       k_route_output_rtmsg2_ret: 0xb52b61,
+      k_ntpadj_lock: 0x1af9f18,
+      k_allproc: 0x35a5d70,
 
       lk_close: 0x1bd30,
       lk__error: 0xf340,
@@ -1063,6 +1102,68 @@ const impl_map = {
     0x40: {
       k_sysctl___kern_smp_cpus: 0x2929e90,
       k_route_output_rtmsg2_ret: 0xb53751,
+      k_ntpadj_lock: 0x1af9f38,
+
+      wk_pthread_create: 0x2c78920,
+      wk_pthread_join: 0x2c78960,
+
+      get wk_LEAVE_RET() {
+        return webkit_base.add(0x13eb626);
+      },
+      get wk_POP_R8_RET() {
+        return webkit_base.add(0x26a7aa2);
+      },
+      get wk_POP_R9_RET() {
+        return webkit_base.add(0x25786c2);
+      },
+      get wk_POP_R11_RET() {
+        return webkit_base.add(0x1dafb79);
+      },
+      get wk_POP_R12_RET() {
+        return webkit_base.add(0x2987d63);
+      },
+      get wk_POP_R13_RET() {
+        return webkit_base.add(0x1bcffa9);
+      },
+      get wk_POP_R14_RET() {
+        return webkit_base.add(0x2bf1ce6);
+      },
+      get wk_POP_R15_RET() {
+        return webkit_base.add(0x2b2d046);
+      },
+      get wk_POP_RAX_RET() {
+        return webkit_base.add(0x2b8d008);
+      },
+      get wk_POP_RBX_RET() {
+        return webkit_base.add(0x737e9e);
+      },
+      get wk_POP_RCX_RET() {
+        return webkit_base.add(0x2c51987);
+      },
+      get wk_POP_RDX_RET() {
+        return webkit_base.add(0x2bd687a);
+      },
+      get wk_POP_RDI_RET() {
+        return webkit_base.add(0x10482ed);
+      },
+      get wk_POP_RSI_RET() {
+        return webkit_base.add(0x2c53300);
+      },
+      get wk_POP_RBP_RET() {
+        return webkit_base.add(0x1c2b61a);
+      },
+      get wk_POP_RSP_RET() {
+        return webkit_base.add(0x2c191e2);
+      },
+      get wk_MOV_QWORD_PTR_RDI_RAX_RET() {
+        return webkit_base.add(0x27ee4e7);
+      },
+      get wk_MOV_RAX_QWORD_PTR_RDI_RET() {
+        return webkit_base.add(0x2a06a73);
+      },
+      get wk_PUSH_QWORD_PTR_RBX_JMP_QWORD_PTR_RAX() {
+        return webkit_base.add(0x642b2);
+      },
     },
     0x60: {
       k_sysctl___kern_smp_cpus: 0x2929ed0,
@@ -1073,7 +1174,9 @@ const impl_map = {
     0: {
       k_sysctl___kern_smp_cpus: 0x294b400,
       k_route_output_rtmsg2_ret: 0xb6ec71,
+      k_ntpadj_lock: 0x1b1ab78,
       k_aio_table: 0xc48,
+      k_allproc: 0x35d5e00,
 
       lk_close: 0x1c280,
       lk__error: 0xf740,
@@ -1157,6 +1260,8 @@ const impl_map = {
     0: {
       k_sysctl___kern_smp_cpus: 0x28bec80,
       k_route_output_rtmsg2_ret: 0xad8582,
+      k_ntpadj_lock: 0x1a8ba78,
+      k_allproc: 0x3575e00,
 
       lk_close: 0x1c310,
       lk__error: 0xf7d0,
@@ -1165,8 +1270,8 @@ const impl_map = {
       wk_pthread_create: 0x2ad7ee0,
       wk_pthread_join: 0x2ad7f20,
       wk_expm1_builtin: 0x57850,
-      wk___imp___error: 0x2ad6340,
-      wk___imp_strerror: 0x2ad6380,
+      wk___imp___error: 0x3352230,
+      wk___imp_strerror: 0x3352250,
 
       get wk_LEAVE_RET() {
         return webkit_base.add(0x29a4b7b);
@@ -1232,10 +1337,14 @@ const impl_map = {
     0x40: {
       k_sysctl___kern_smp_cpus: 0x28bee80,
       k_route_output_rtmsg2_ret: 0xad8aa0,
+      k_ntpadj_lock: 0x1a8bab8,
+      k_allproc: 0x3579e80,
     },
     0x60: {
       k_sysctl___kern_smp_cpus: 0x28cef60,
       k_route_output_rtmsg2_ret: 0xae2da0,
+      k_ntpadj_lock: 0x1a9bab8,
+      k_allproc: 0x3589e80,
 
       wk_pthread_create: 0x2ad7fa0,
       wk_pthread_join: 0x2ad7fe0,

